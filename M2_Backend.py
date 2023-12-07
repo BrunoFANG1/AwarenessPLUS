@@ -50,13 +50,15 @@ def m22(input_fname):
         idx = text.lower().find(word.lower())
         return idx, idx+len(word)
 
-    user_body = data['match']['docs'][0]['body'][0]
+    # user_body = data['match']['docs'][0]['body'][0]
+    user_body = data['match']['docs'][0]['body']
     cluster_body_list = []
 
     num_articles = len(data['response']['docs'])
 
     for i in range(num_articles):
-        cluster_body_list.append(data['response']['docs'][i]['body'][0])
+        # cluster_body_list.append(data['response']['docs'][i]['body'][0])
+        cluster_body_list.append(data['response']['docs'][i]['body'])
 
     user_sentiments = {}
     for keyword in keywords:
@@ -100,9 +102,11 @@ def m22(input_fname):
                             'sentiment': user_sentiments[keyword]})
 
     output['user_article'] = {
-        'title': data['match']['docs'][0]['headline'][0],
-        'source': data['match']['docs'][0]['outlet'][0],
-        'politicalLeaning': data['match']['docs'][0]['political_leaning'][0],
+        # 'title': data['match']['docs'][0]['headline'][0],
+        # 'source': data['match']['docs'][0]['outlet'][0],
+        # 'politicalLeaning': data['match']['docs'][0]['political_leaning'][0],
+        'title': data['match']['docs'][0]['title'],
+        'source': data['match']['docs'][0]['source_name'],
         'keywords': keywords_list
     }
 
@@ -111,11 +115,13 @@ def m22(input_fname):
         keywords_list = []
         for keyword in keywords:
             keywords_list.append({'word': keyword,
-                                'sentiment': topic_sentiments[keyword][article]})
+                                'sentiment': topic_sentiments[keyword][i]})
         articles_list.append({
-            'title': data['response']['docs'][article]['headline'][0],
-            'source': data['response']['docs'][article]['outlet'][0],
-            'politicalLeaning': data['response']['docs'][article]['political_leaning'][0],
+            # 'title': data['response']['docs'][i]['headline'][0],
+            # 'source': data['response']['docs'][i]['outlet'][0],
+            # 'politicalLeaning': data['response']['docs'][i]['political_leaning'][0],
+            'title': data['response']['docs'][i]['title'],
+            'source': data['response']['docs'][i]['source_name'],
             'keywords': keywords_list
         })
 
@@ -188,12 +194,14 @@ def main():
     out_dict['user_article']['body'] = in_dict['match']['docs'][0]['body']
     out_dict['user_article']['url'] = in_dict['match']['docs'][0]['url']
     out_dict['user_article']['image_url'] = in_dict['match']['docs'][0]['image_url']
+    out_dict['user_article']['date'] = in_dict['match']['docs'][0]['date']
     out_dict['user_article']['M2.1_perspectives'] = coarse_perspectives[0]
 
     for i in range(len(out_dict['queried_articles'])):
         out_dict['queried_articles'][i]['body'] = in_dict['response']['docs'][i]['body']
         out_dict['queried_articles'][i]['url'] = in_dict['response']['docs'][i]['url']
         out_dict['queried_articles'][i]['image_url'] = in_dict['response']['docs'][i]['image_url']
+        out_dict['queried_articles'][i]['date'] = in_dict['response']['docs'][i]['date']
         out_dict['queried_articles'][i]['M2.1_perspectives'] = coarse_perspectives[i+1]
 
     with open(output_fname, 'w') as f:
