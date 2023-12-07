@@ -10,7 +10,7 @@ class POLUSADataset(Dataset):
         self.tokenizer = DistilBertTokenizerFast.from_pretrained('distilbert-base-uncased')
 
         # Create a dictionary to map political leanings to integers
-        self.political_leaning_to_int = {'LEFT': 0, 'RIGHT': 1, 'CENTER': 2, 'UNDEFINED': 3}
+        self.political_leaning_to_int = {'LEFT': 0, 'RIGHT': 1, 'CENTER': 2} #, 'UNDEFINED': 3}
         
     def __len__(self):
         return len(self.data)
@@ -30,7 +30,8 @@ class POLUSADataset(Dataset):
         political_leaning = self.data.iloc[idx, 9]
         
         # Convert political leaning to integer
-        political_leaning = self.political_leaning_to_int.get(political_leaning, 3)  # Use 3 for 'UNDEFINED' or unknown
+        political_leaning = self.political_leaning_to_int.get(political_leaning)  # Use 3 for 'UNDEFINED' or unknown
+        # political_leaning = self.political_leaning_to_int.get(political_leaning, 3)  # Use 3 for 'UNDEFINED' or unknown
         
         return {'id': x_token['input_ids'][0], 'attention_mask': x_token['attention_mask'][0], 'labels': political_leaning}
 
