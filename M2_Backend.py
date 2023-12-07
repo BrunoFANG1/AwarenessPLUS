@@ -23,9 +23,9 @@ class ArticleDataset(Dataset):
         with open(json_file, 'r', encoding='utf-8') as input_file:
             self.data = json.load(input_file)
         self.articles = []
-        self.articles.append(self.data['match']['docs'][0]['body'])
+        self.articles.append(self.data['match']['docs'][0]['body'][0])
         for doc in self.data['response']['docs']:
-            self.articles.append(doc['body'])
+            self.articles.append(doc['body'][0])
         self.tokenizer = DistilBertTokenizerFast.from_pretrained('distilbert-base-uncased')
 
     def __len__(self):
@@ -50,15 +50,15 @@ def m22(input_fname):
         idx = text.lower().find(word.lower())
         return idx, idx+len(word)
 
-    # user_body = data['match']['docs'][0]['body'][0]
-    user_body = data['match']['docs'][0]['body']
+    user_body = data['match']['docs'][0]['body'][0]
+    # user_body = data['match']['docs'][0]['body']
     cluster_body_list = []
 
     num_articles = len(data['response']['docs'])
 
     for i in range(num_articles):
-        # cluster_body_list.append(data['response']['docs'][i]['body'][0])
-        cluster_body_list.append(data['response']['docs'][i]['body'])
+        cluster_body_list.append(data['response']['docs'][i]['body'][0])
+        # cluster_body_list.append(data['response']['docs'][i]['body'])
 
     user_sentiments = {}
     for keyword in keywords:
@@ -105,8 +105,8 @@ def m22(input_fname):
         # 'title': data['match']['docs'][0]['headline'][0],
         # 'source': data['match']['docs'][0]['outlet'][0],
         # 'politicalLeaning': data['match']['docs'][0]['political_leaning'][0],
-        'title': data['match']['docs'][0]['title'],
-        'source': data['match']['docs'][0]['source_name'],
+        'title': data['match']['docs'][0]['title'][0],
+        'source': data['match']['docs'][0]['source_name'][0],
         'keywords': keywords_list
     }
 
@@ -120,8 +120,8 @@ def m22(input_fname):
             # 'title': data['response']['docs'][i]['headline'][0],
             # 'source': data['response']['docs'][i]['outlet'][0],
             # 'politicalLeaning': data['response']['docs'][i]['political_leaning'][0],
-            'title': data['response']['docs'][i]['title'],
-            'source': data['response']['docs'][i]['source_name'],
+            'title': data['response']['docs'][i]['title'][0],
+            'source': data['response']['docs'][i]['source_name'][0],
             'keywords': keywords_list
         })
 
@@ -191,17 +191,17 @@ def main():
         in_dict = json.load(input_file)
 
     out_dict = m22(input_fname)
-    out_dict['user_article']['body'] = in_dict['match']['docs'][0]['body']
-    out_dict['user_article']['url'] = in_dict['match']['docs'][0]['url']
-    out_dict['user_article']['image_url'] = in_dict['match']['docs'][0]['image_url']
-    out_dict['user_article']['date'] = in_dict['match']['docs'][0]['date']
+    out_dict['user_article']['body'] = in_dict['match']['docs'][0]['body'][0]
+    out_dict['user_article']['url'] = in_dict['match']['docs'][0]['url'][0]
+    out_dict['user_article']['image_url'] = in_dict['match']['docs'][0]['image_url'][0]
+    out_dict['user_article']['date'] = in_dict['match']['docs'][0]['date'][0]
     out_dict['user_article']['M2.1_perspectives'] = coarse_perspectives[0]
 
     for i in range(len(out_dict['queried_articles'])):
-        out_dict['queried_articles'][i]['body'] = in_dict['response']['docs'][i]['body']
-        out_dict['queried_articles'][i]['url'] = in_dict['response']['docs'][i]['url']
-        out_dict['queried_articles'][i]['image_url'] = in_dict['response']['docs'][i]['image_url']
-        out_dict['queried_articles'][i]['date'] = in_dict['response']['docs'][i]['date']
+        out_dict['queried_articles'][i]['body'] = in_dict['response']['docs'][i]['body'][0]
+        out_dict['queried_articles'][i]['url'] = in_dict['response']['docs'][i]['url'][0]
+        out_dict['queried_articles'][i]['image_url'] = in_dict['response']['docs'][i]['image_url'][0]
+        out_dict['queried_articles'][i]['date'] = in_dict['response']['docs'][i]['date'][0]
         out_dict['queried_articles'][i]['M2.1_perspectives'] = coarse_perspectives[i+1]
 
     with open(output_fname, 'w') as f:
