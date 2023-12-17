@@ -22,6 +22,8 @@ from flask import Flask, request, jsonify
 import joblib
 import pickle
 import sys
+from newsplease import NewsPlease
+
 
 
 app = Flask(__name__)
@@ -302,6 +304,17 @@ leaning_model.to(device)
 def predict():
     json_ = request.json
 
+    # Get the current article according to the json_ file sent back, which contains the url of the current article
+    article = NewsPlease.from_url(json_)
+    if type(article) == dict:
+        print("Failed to get current article: No response")
+    elif len(article.maintext) == 0:
+        print("Failed to get current article: Failed to get body")
+    else: # Successfully obtained current article. Run backend only in this case.
+        print(article.maintext)
+        with open('input_article.json', 'w') as outfile:
+            json.dump(article.maintext, outfile, indent = 4)
+
     prediction = run_instance(device, leaning_model, hyperpartisan_model, input_fname, output_fname)
     print("-------------------------------------------------------------------------")
     print("-------------------------------------------------------------------------")
@@ -310,6 +323,7 @@ def predict():
     
     print(jsonify(prediction))
     return jsonify(prediction)
+
 
 
 if __name__ == '__main__':

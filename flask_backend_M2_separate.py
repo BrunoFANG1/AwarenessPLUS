@@ -18,11 +18,18 @@ import json
 from NewsSentiment import TargetSentimentClassifier
 import json
 import time 
+from flask import Flask, request, jsonify
+import joblib
+import pickle
+import sys
+from newsplease import NewsPlease
 import nltk
 from nltk.tokenize import sent_tokenize
 import random
 
 
+
+app = Flask(__name__)
 
 class ArticleDataset(Dataset):
     def __init__(self, json_file):
@@ -51,7 +58,98 @@ def m22(input_fname):
     tsc = TargetSentimentClassifier()
 
     keywords = data['interestingTerms']
-    # keywords = get_keywords_list(in_dict['interestingTerms'])
+
+    def find_idx(text, word):
+        idx = text.lower().find(word.lower())
+        return idx, idx+len(word)
+
+    user_body = data['match']['docs'][0]['body'][0]
+    # user_body = data['match']['docs'][0]['body']
+    cluster_body_list = []
+
+    num_articles = len(data['response']['docs'])
+
+    for i in range(num_articles):
+        cluster_body_list.append(data['response']['docs'][i]['body'][0])
+        # cluster_body_list.append(data['response']['docs'][i]['body'])
+
+    user_sentiments = {}
+    for keyword in keywords:
+        idxs = find_idx(user_body, keyword)
+        try:
+            user_sentiments[keyword] = tsc.infer(
+                text=user_body,
+                target_mention_from=idxs[0],
+                target_mention_to=idxs[1]
+            )[0]['class_label']
+        except:
+            pass
+    user_sentiments
+
+    keywords = list(user_sentiments.keys())
+    
+    keywords_indices = {}
+
+    for keyword in keywords:
+        keywords_indices[keyword] = [find_idx(cluster_body_list[i], keyword) for i in range(num_articles)]
+
+    topic_sentiments = {}
+    
+    for keyword in keywords_indices:
+        topic_sentiments[keyword] = []
+        for i in range(num_articles):
+            try:
+                topic_sentiments[keyword].append(tsc.infer(
+                    text=cluster_body_list[i],
+                    target_mention_from=keywords_indices[keyword][i][0],
+                    target_mention_to=keywords_indices[keyword][i][1]
+                )[0]['class_label'])
+            except:
+                topic_sentiments[keyword].append('')
+    
+    output = {}
+
+    keywords_list = []
+    for keyword in keywords:
+        keywords_list.append({'word': keyword,
+                            'sentiment': user_sentiments[keyword]})
+
+    output['user_article'] = {
+        # 'title': data['match']['docs'][0]['headline'][0],
+        # 'source': data['match']['docs'][0]['outlet'][0],
+        # 'politicalLeaning': data['match']['docs'][0]['political_leaning'][0],
+        'title': data['match']['docs'][0]['title'][0],
+        'source': data['match']['docs'][0]['source_name'][0],
+        'keywords': keywords_list
+    }
+
+    articles_list = []
+    for i in range(num_articles):
+        keywords_list = []
+        for keyword in keywords:
+            keywords_list.append({'word': keyword,
+                                'sentiment': topic_sentiments[keyword][i]})
+        articles_list.append({
+            # 'title': data['response']['docs'][i]['headline'][0],
+            # 'source': data['response']['docs'][i]['outlet'][0],
+            # 'politicalLeaning': data['response']['docs'][i]['political_leaning'][0],
+            'title': data['response']['docs'][i]['title'][0],
+            'source': data['response']['docs'][i]['source_name'][0],
+            'keywords': keywords_list
+        })
+
+    output['queried_articles'] = articles_list
+
+    return output 
+
+
+def m22_single(input_fname, keyword):
+    f = open(input_fname, encoding="utf-8")
+    data = json.load(f)
+
+    tsc = TargetSentimentClassifier()
+
+    keywords = data['interestingTerms']
 
     def find_idx(text, word):
         idx = text.lower().find(word.lower())
@@ -169,7 +267,6 @@ def evaluate_model(model, dataloader, device, acc_only=True):
     
     return label
 
-
 def get_political_perspective(leaning, hyperpartisan):
     return (leaning-1) * (hyperpartisan+1)
 
@@ -219,6 +316,10 @@ def get_keywords_list(input_list):
 
 
 
+
+
+
+
 def background():
     while True:
         time.sleep(10)
@@ -249,18 +350,34 @@ def run_instance(device, leaning_model, hyperpartisan_model, input_fname, output
         in_dict = json.load(input_file)
 
     # out_dict = m22(input_fname)
-    # out_dict['user_article']['body'] = in_dict['match']['docs'][0]['body'][0]
-    # out_dict['user_article']['url'] = in_dict['match']['docs'][0]['url'][0]
-    # out_dict['user_article']['image_url'] = in_dict['match']['docs'][0]['image_url'][0]
-    # out_dict['user_article']['date'] = in_dict['match']['docs'][0]['date'][0]
-    # out_dict['user_article']['M2.1_perspectives'] = coarse_perspectives[0]
 
-    # for i in range(len(out_dict['queried_articles'])):
-    #     out_dict['queried_articles'][i]['body'] = in_dict['response']['docs'][i]['body'][0]
-    #     out_dict['queried_articles'][i]['url'] = in_dict['response']['docs'][i]['url'][0]
-    #     out_dict['queried_articles'][i]['image_url'] = in_dict['response']['docs'][i]['image_url'][0]
-    #     out_dict['queried_articles'][i]['date'] = in_dict['response']['docs'][i]['date'][0]
-    #     out_dict['queried_articles'][i]['M2.1_perspectives'] = coarse_perspectives[i+1]
+        
+    # output['user_article'] = {
+    #     # 'title': data['match']['docs'][0]['headline'][0],
+    #     # 'source': data['match']['docs'][0]['outlet'][0],
+    #     # 'politicalLeaning': data['match']['docs'][0]['political_leaning'][0],
+    #     'title': data['match']['docs'][0]['title'][0],
+    #     'source': data['match']['docs'][0]['source_name'][0],
+    #     'keywords': keywords_list
+    # }
+
+    # articles_list = []
+    # for i in range(num_articles):
+    #     keywords_list = []
+    #     for keyword in keywords:
+    #         keywords_list.append({'word': keyword,
+    #                             'sentiment': topic_sentiments[keyword][i]})
+    #     articles_list.append({
+    #         # 'title': data['response']['docs'][i]['headline'][0],
+    #         # 'source': data['response']['docs'][i]['outlet'][0],
+    #         # 'politicalLeaning': data['response']['docs'][i]['political_leaning'][0],
+    #         'title': data['response']['docs'][i]['title'][0],
+    #         'source': data['response']['docs'][i]['source_name'][0],
+    #         'keywords': keywords_list
+    #     })
+
+    # output['queried_articles'] = articles_list
+
     out_dict = {}
     out_dict['user_article'] = {
         'title' : in_dict['match']['docs'][0]['title'][0],
@@ -284,20 +401,7 @@ def run_instance(device, leaning_model, hyperpartisan_model, input_fname, output
         'date' : in_dict['response']['docs'][i]['date'][0],
         'M2.1_perspectives' : coarse_perspectives[i+1]
         })
-    # articles_list = []
-    # for i in range(len(coarse_perspectives) - 1):
-    #     keywords_list = []
-    #     for keyword in keywords:
-    #         keywords_list.append({'word': keyword,
-    #                             'sentiment': topic_sentiments[keyword][i]})
-    #     articles_list.append({
-    #         # 'title': data['response']['docs'][i]['headline'][0],
-    #         # 'source': data['response']['docs'][i]['outlet'][0],
-    #         # 'politicalLeaning': data['response']['docs'][i]['political_leaning'][0],
-    #         'title': data['response']['docs'][i]['title'][0],
-    #         'source': data['response']['docs'][i]['source_name'][0],
-    #         'keywords': keywords_list
-    #     })
+
 
     keywords = in_dict['interestingTerms']
     # keywords = get_keywords_list(in_dict['interestingTerms'])
@@ -314,9 +418,10 @@ def run_instance(device, leaning_model, hyperpartisan_model, input_fname, output
         json.dump(out_dict, f, indent=4)
 
     print('Done running instance.')
+    return out_dict
 
 def main():
-    device = 'cuda'
+    device = 'cpu'
     leaning_model_dir = './saved_models/leaning/'
     hyperpartisan_model_dir = './saved_models/hyperpartisan/'
     input_fname = './M1_output.json'
@@ -341,5 +446,55 @@ def main():
         else:
             print('wrong input')
 
-if __name__ == "__main__":
-    main()
+device = 'cpu'
+leaning_model_dir = './saved_models/leaning/'
+hyperpartisan_model_dir = './saved_models/hyperpartisan/'
+input_fname = './M1_output.json'
+output_fname = './M2_output.json'
+
+hyperpartisan_model = AutoModelForSequenceClassification.from_pretrained(hyperpartisan_model_dir)
+hyperpartisan_model.to(device)
+leaning_model = AutoModelForSequenceClassification.from_pretrained(leaning_model_dir)
+leaning_model.to(device)
+
+@app.route('/predict', methods=['POST'])
+def predict():
+    json_ = request.json
+
+    # Get the current article according to the json_ file sent back, which contains the url of the current article
+    article = NewsPlease.from_url(json_)
+    if type(article) == dict:
+        print("Failed to get current article: No response")
+    elif len(article.maintext) == 0:
+        print("Failed to get current article: Failed to get body")
+    else: # Successfully obtained current article. Run backend only in this case.
+        print(article.maintext)
+        with open('input_article.json', 'w') as outfile:
+            json.dump(article.maintext, outfile, indent = 4)
+
+    prediction = run_instance(device, leaning_model, hyperpartisan_model, input_fname, output_fname)
+    print("-------------------------------------------------------------------------")
+    print("-------------------------------------------------------------------------")
+    print("-------------------------------------------------------------------------")
+    print("-------------------------------------------------------------------------")
+    
+    print(jsonify(prediction))
+    return jsonify(prediction)
+
+@app.route('/predict_targeted', methods=['POST'])
+def predict_targeted():
+    json_ = request.json
+
+
+    prediction = m22_single(input_fname, json_)
+    
+    print(jsonify(prediction))
+    return jsonify(prediction)
+
+
+if __name__ == '__main__':
+    # classifier = joblib.load('./pipeline.pkl')
+    app.run(
+        port=5000,
+        debug=False
+    )
