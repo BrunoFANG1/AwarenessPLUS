@@ -166,7 +166,8 @@ def get_political_perspective(leaning, hyperpartisan):
     return (leaning-1) * (hyperpartisan+1)
 
 def main():
-    device = 'cuda'
+    device = 'cpu'
+    print(f"we are currently using {device}")
     leaning_model_dir = './saved_models/leaning/'
     hyperpartisan_model_dir = './saved_models/hyperpartisan/'
     input_fname = './M1_output.json'
