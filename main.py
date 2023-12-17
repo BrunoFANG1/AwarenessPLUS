@@ -22,8 +22,9 @@ from flask import Flask, request, jsonify
 import joblib
 import pickle
 import sys
-from fastapi import FastAPI
-app=FastAPI()
+
+
+app = Flask(__name__)
 
 class ArticleDataset(Dataset):
     def __init__(self, json_file):
@@ -297,21 +298,23 @@ hyperpartisan_model.to(device)
 leaning_model = AutoModelForSequenceClassification.from_pretrained(leaning_model_dir)
 leaning_model.to(device)
 
-@app.get('/predict')
-async def predict():
-    prediction = run_instance(device, leaning_model, hyperpartisan_model, input_fname, output_fname)
-    print(prediction)
-    return jsonify(prediction)
+@app.route('/predict', methods=['POST'])
+def predict():
+    json_ = request.json
 
-@app.route('/')
-async def test():
-    return {"message":"this is test"}
+    prediction = run_instance(device, leaning_model, hyperpartisan_model, input_fname, output_fname)
+    print("-------------------------------------------------------------------------")
+    print("-------------------------------------------------------------------------")
+    print("-------------------------------------------------------------------------")
+    print("-------------------------------------------------------------------------")
+    
+    print(jsonify(prediction))
+    return jsonify(prediction)
 
 
 if __name__ == '__main__':
     # classifier = joblib.load('./pipeline.pkl')
     app.run(
-        host='0.0.0.0',
-        port=8000,
-        debug=True
+        port=5000,
+        debug=False
     )
