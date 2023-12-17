@@ -317,6 +317,7 @@ def run_instance(device, leaning_model, hyperpartisan_model, input_fname, output
 
 def main():
     device = 'cuda'
+    # device = 'cpu'
     leaning_model_dir = './saved_models/leaning/'
     hyperpartisan_model_dir = './saved_models/hyperpartisan/'
     input_fname = './M1_output.json'
