@@ -460,16 +460,25 @@ async def predict(request: Request):
 #     prediction = run_instance(device, leaning_model, hyperpartisan_model, input_fname, output_fname)
 #     print(prediction)
 
-@app.get('/analyze_this')
+@app.post('/analyze_this')
 async def analyze_this():
-    # Usage: replace the second field (article_idx) with the index of the article returned from the frontend
-    curr_key_sentiment = m22('./M2_output.json', article_idx=0, tsc=tsc, multiple_articles=False)
+    # Usage: return the index of the article selected by the user from frontend (starting at 0)
+    # Format: data['article_idx'] = the article's index
+    data = await request.json()
+    article_idx = data['article_idx']
+    curr_key_sentiment = m22('./M2_output.json', article_idx=article_idx, tsc=tsc, multiple_articles=False)
     print(curr_key_sentiment)
+    return curr_key_sentiment
 
-@app.get('/analyze_all')
+@app.post('/analyze_all')
 async def analyze_all():
-    all_key_sentiment = m22('./M2_output.json', article_idx=0, tsc=tsc, multiple_articles=True)
+    # Usage: return the index of the article selected by the user from frontend (starting at 0)
+    # Format: data['article_idx'] = the article's index
+    data = await request.json()
+    article_idx = data['article_idx']
+    all_key_sentiment = m22('./M2_output.json', article_idx=article_idx, tsc=tsc, multiple_articles=True)
     print(all_key_sentiment)
+    return all_key_sentiment
 
 if __name__ == '__main__':
     # classifier = joblib.load('./pipeline.pkl')
