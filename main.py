@@ -26,8 +26,12 @@ import joblib
 import pickle
 import sys
 from fastapi import FastAPI
+from newsplease import NewsPlease
+import requests
+from urllib.parse import quote_plus
 app=FastAPI()
 
+# Used for model evaluation in M2.1
 class ArticleDataset(Dataset):
     def __init__(self, json_file):
         with open(json_file, 'r', encoding='utf-8') as input_file:
@@ -49,6 +53,7 @@ class ArticleDataset(Dataset):
         return {'id':x_token['input_ids'][0], 'attention_mask':x_token['attention_mask'][0]}
 
 
+# Used for M2.2, when we need to find the sentiment of a keyword in an article
 def m22(input_fname, article_idx, tsc, multiple_articles=False):
     f = open(input_fname, encoding="utf-8")
     data = json.load(f)
@@ -124,6 +129,12 @@ def m22(input_fname, article_idx, tsc, multiple_articles=False):
     return output 
 
 
+# Used for M2.1, translates leaning text to numbers
+def get_political_perspective(leaning, hyperpartisan):
+    return (leaning-1) * (hyperpartisan+1)
+
+
+# M2.1, returns coarse political perspectives of articles
 def evaluate_model(model, dataloader, device, acc_only=True):
     """ Evaluate a PyTorch Model
     :param torch.nn.Module model: the model to be evaluated
@@ -150,10 +161,66 @@ def evaluate_model(model, dataloader, device, acc_only=True):
     return label
 
 
-def get_political_perspective(leaning, hyperpartisan):
-    return (leaning-1) * (hyperpartisan+1)
+# Used for M1 (Solr)
+def get_document_id(solr_url, query):
+    """ Get the ID of the document matching the query. """
+    encoded_query = quote_plus(query)
+    full_url = f"{solr_url}?q={encoded_query}"
+    response = requests.get(full_url)
+
+    if response.status_code == 200:
+        response_json = response.json()
+        docs = response_json.get('response', {}).get('docs', [])
+        if docs:
+            return docs[0].get('id')  # Assuming the first document is the correct one
+        else:
+            print("No documents found for the query.")
+            return None
+    else:
+        print(f"Error during search: {response.status_code}")
+        return None
 
 
+# Used for M1 (Solr)
+def find_similar_documents(solr_mlt_url, document_id):
+    """ Find documents similar to the one with the provided ID. """
+    full_url = f"{solr_mlt_url}?q=id:{quote_plus(document_id)}&mlt.fl=body&mlt.boost=true&mlt.interestingTerms=details&mlt.maxdfpct=10&ros=10"
+    response = requests.get(full_url)
+    print(response)
+
+    # for run in range(100):
+    if response.status_code == 200:
+        print("save file")
+        return response.text  # Return the raw JSON response text
+
+    return None
+
+
+# M1, get similar articles with Solr
+def get_solr_articles(article_title):
+    # Define the base URL for Solr
+    solr_url = 'http://localhost:8990/solr/liang/select'
+    solr_mlt_url = 'http://localhost:8990/solr/liang/mlt'  # URL for MLT queries
+
+    # Query to find the specific document by title
+    query = f'title:"{article_title}"'
+
+    # Get the document ID
+    document_id = get_document_id(solr_url, query)
+
+    if document_id:
+        print(document_id)
+        similar_documents_json = find_similar_documents(solr_mlt_url, document_id)
+
+        if similar_documents_json:
+            # Write the raw JSON response to a file
+            with open('M1_ouput.json', 'w') as file:
+                file.write(similar_documents_json)
+    
+    return similar_documents_json
+
+
+# Used for getting sentence with keyword
 def get_sentence(keywords, article):
     sents_with_keys = []
     ret_sent = ''
@@ -185,6 +252,7 @@ def get_sentence(keywords, article):
     return ret_pair
 
 
+# Used for getting keywords from Solr
 def get_keywords_list(input_list):
     # Create a list of (keyword, value) pairs
     pairs = [(input_list[i], input_list[i+1]) for i in range(0, len(input_list), 2)]
@@ -198,13 +266,40 @@ def get_keywords_list(input_list):
     return cleaned_keywords
 
 
+# Used for getting current article from frontend
+def get_current_article(url):
+    article = NewsPlease.from_url(url)
+    if type(article) == dict:
+        print("Failed to get current article: No response")
+    elif len(article.title) == 0:
+        print("Failed to get current article: Failed to get body")
+    else:
+        print(article.title)
+
+    return(article.title)
+
+
 # def background():
 #     while True:
 #         time.sleep(10)
 
 
 def run_instance(device, leaning_model, hyperpartisan_model, input_fname, output_fname):
-    print('Running instance.')
+    
+    #TODO Replace url with the url returned from frontend
+    url = "" 
+    current_title = get_current_article(url) # Get the title of the current article, used for solr
+    
+    #TODO: uncomment the following block when solr is ready
+    # for i in range(10):
+    #     out = get_solr_articles(current_title)
+    #     if out is not None:
+    #         print("success")
+    #         break
+    #     time.sleep(0.5)
+    
+
+    print('Running M2.1.')
 
     dataset = ArticleDataset(json_file='./M1_output.json')
     dataloader = DataLoader(dataset, shuffle=False, batch_size = 1)
