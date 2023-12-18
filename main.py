@@ -498,8 +498,10 @@ async def analyze_this():
 async def analyze_all():
     # Usage: return the index of the article selected by the user from frontend (starting at 0)
     # Format: data['article_idx'] = the article's index
-    data = await request.json()
-    article_idx = data['article_idx']
+    #data = await request.json()
+    #article_idx = data['article_idx']
+    
+    article_idx =0
     all_key_sentiment = m22('./M2_output.json', article_idx=article_idx, tsc=tsc, multiple_articles=True)
     print(all_key_sentiment)
     return all_key_sentiment
