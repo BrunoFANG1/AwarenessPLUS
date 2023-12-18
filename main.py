@@ -271,12 +271,13 @@ def get_current_article(url):
     article = NewsPlease.from_url(url)
     if type(article) == dict:
         print("Failed to get current article: No response")
+        return None
     elif len(article.title) == 0:
-        print("Failed to get current article: Failed to get body")
+        print("Failed to get current article: Failed to get article title")
+        return None
     else:
         print(article.title)
-
-    return(article.title)
+        return(article.title)
 
 
 # def background():
