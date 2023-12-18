@@ -381,3 +381,29 @@ footer a:hover {
   background-color: #ddd;
 }
 
+/* CSS styles for the article cards */
+.article-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.article-card {
+  background-color: #f5f5f5;
+  border: 1px solid #ccc;
+  padding: 10px;
+  border-radius: 5px;
+  width: 300px;
+}
+
+.article-card.left-leaning {
+  background-color: #ffdddd; /* Red for left-leaning articles */
+}
+
+.article-card.right-leaning {
+  background-color: #ddffdd; /* Green for right-leaning articles */
+}
+
+.article-card.center-leaning {
+  background-color: #ffffdd; /* Yellow for center-leaning articles */
+}

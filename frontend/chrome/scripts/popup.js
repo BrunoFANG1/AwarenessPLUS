@@ -11,6 +11,8 @@ var _storage2 = _interopRequireDefault(_storage);
 
 var newsTitle;
 
+var bkg = chrome.extension.getBackgroundPage();
+
 var mockArticles = [
   {
     title: "Election 2024: The Surprising Turn of Events",
@@ -103,7 +105,7 @@ function bindKeywordButtonEvents() {
 
 function createPoliticalSpectrum(leaning) {
   const positions = { 'far left': 0, 'left': 25, 'center': 50, 'right': 75, 'far right': 100 };
-  let position = positions[leaning] || 50; // Default to center if undefined
+  let position = positions[leaning + 2] || 50; // Default to center if undefined
 
   return `
     <div class="spectrum-bar">
@@ -166,6 +168,43 @@ var renderMessage = function renderMessage(message) {
   displayContainer.innerHTML = "<p class='message'>" + message + "</p>";
 };
 
+var renderArticle = function(result) {
+  var displayContainer = document.getElementById("display-container");
+  
+  // Start building the HTML string
+  var html = `
+    <h1>User Article Title:</h1>
+    <p>${result.user_article.title}</p>
+  
+    <h1>Queried Articles:</h1>
+    <div class="article-cards">
+  `;
+  
+  // Loop through queried_articles and create a card for each article
+  result.queried_articles.forEach(function(article) {
+    // Create a card for each article with title and political leaning
+    var keySentenceWithBoldKeyword = article.key_sentence.replace(
+      new RegExp(article.keyword, 'gi'), // 'gi' for case-insensitive match
+      '<strong>$&</strong>'
+    );
+    html += `
+      <div class="article-card">
+        <h2>${article.title}</h2>
+        <div class="political-spectrum">
+          <p>Political Leaning: ${createPoliticalSpectrum(article.M2_1_perspectives)}</p>
+        </div>
+        <p>${keySentenceWithBoldKeyword}</p>
+      </div>
+    `;
+  });
+  
+  // Close the article-cards div and display the HTML
+  html += `</div>`;
+  displayContainer.innerHTML = html;
+};
+
+
+
 // render the data if available
 var renderBookmark = function renderBookmark(data) {
   var displayContainer = document.getElementById("display-container");
@@ -198,55 +237,22 @@ popup.addEventListener("click", function (e) {
       if (response && response.action === "saved") {
 
         var data = JSON.stringify({text: [newsTitle]});
-        // console.log(data);
         var xhr = new XMLHttpRequest();
         var mockData = getMockRecommendations();
-        xhr.open("POST", "http://127.0.0.1:5000/predict", true);
+        console.log('success'); 
+        // xhr.open("POST", "http://3.138.79.103:8000//analyze_this", true);
+        xhr.open("POST", "http://3.138.79.103:8000/predict", true);
+        // xhr.open("POST", "http://108.233.179.22:8080/predict", true);
         xhr.setRequestHeader("Content-type", "application/json");
         xhr.onreadystatechange = function() {
-          if (xhr.readyState == 4) { // 4 means done
-            console.log('xhr response: '+ xhr.responseText);
-            const obj = JSON.parse(xhr.responseText);
-            if (obj.prediction == 1){
-              // Add dummy keywords
-              var keywords = [
-                { word: "Economy", sentiment: "negative" },
-                { word: "Candidates", sentiment: "positive" },
-                { word: "Polls", sentiment: "neutral" },
-                { word: "Campaigns", sentiment: "positive" },
-                { word: "Debates", sentiment: "negative" }
-              ]
-              var politicalLeaning = "right"
-              
-              var keywordsHTML =  `
-              <div class="political-spectrum" style="color: black;">
-                <p>Political Leaning: ${createPoliticalSpectrum(politicalLeaning)}</p>
-              </div>`
-              
-              keywordsHTML += `
-              <div class="keywords-legend">
-                <span class="sentiment-indicator positive">Positive</span>
-                <span class="sentiment-indicator negative">Negative</span>
-                <span class="sentiment-indicator neutral">Neutral</span>
-              </div>`;
+          console.log("Ready State:", xhr.readyState);
+          if (xhr.readyState == 4 && xhr.status == 200) {
+            // Parse the JSON response
+            console.log('success'); 
+            var obj = JSON.parse(xhr.responseText);
+            console.log(obj); 
 
-              keywordsHTML += '<div class="keywords"><p style="color: black;">Keywords and sentiment:</p><ul>';
-
-              // Generate list items for each keyword with sentiment color
-              keywords.forEach(function(keyword) {
-                var color = keyword.sentiment === 'positive' ? 'green' :
-                            keyword.sentiment === 'negative' ? 'red' : 'blue';
-                var backgroundColor = color + '33'; // Lighter shade for background
-                keywordsHTML += `<button class="keyword-button" style="color: ${color}; background-color: ${backgroundColor};" data-word="${keyword.word}" data-sentiment="${keyword.sentiment}">${keyword.word}</button>`;
-              });
-
-              
-              keywordsHTML += '</ul></div>';
-              renderRecommendations(mockData, keywordsHTML);
-            }
-            else {
-              renderMessage("This article is FAKE.");
-            }
+            renderArticle(obj);
             
           }
         }
