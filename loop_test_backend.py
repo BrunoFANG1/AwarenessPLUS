@@ -44,94 +44,76 @@ class ArticleDataset(Dataset):
                                  return_tensors='pt')        
         return {'id':x_token['input_ids'][0], 'attention_mask':x_token['attention_mask'][0]}
 
-def m22(input_fname):
+def m22(input_fname, article_idx, tsc, multiple_articles=False):
     f = open(input_fname, encoding="utf-8")
     data = json.load(f)
 
-    tsc = TargetSentimentClassifier()
-
-    keywords = data['interestingTerms']
-    # keywords = get_keywords_list(in_dict['interestingTerms'])
+    keyword = data['queried_articles'][article_idx]['keyword']
 
     def find_idx(text, word):
         idx = text.lower().find(word.lower())
         return idx, idx+len(word)
 
-    user_body = data['match']['docs'][0]['body'][0]
-    # user_body = data['match']['docs'][0]['body']
+    user_body = data['user_article']['body']
+
     cluster_body_list = []
 
-    num_articles = len(data['response']['docs'])
 
-    for i in range(num_articles):
-        cluster_body_list.append(data['response']['docs'][i]['body'][0])
-        # cluster_body_list.append(data['response']['docs'][i]['body'])
+    if multiple_articles:
+        num_articles = len(data['queried_articles'])
+        for i in range(num_articles):
+            cluster_body_list.append(data['queried_articles'][i]['body'])
+    else:
+        num_articles = 1
+        cluster_body_list.append(data['queried_articles'][article_idx]['body'])
+
 
     user_sentiments = {}
-    for keyword in keywords:
-        idxs = find_idx(user_body, keyword)
-        try:
-            user_sentiments[keyword] = tsc.infer(
-                text=user_body,
-                target_mention_from=idxs[0],
-                target_mention_to=idxs[1]
-            )[0]['class_label']
-        except:
-            pass
-    user_sentiments
+    idxs = find_idx(user_body, keyword)
+    try:
+        user_sentiments[keyword] = tsc.infer(
+            text=user_body,
+            target_mention_from=idxs[0],
+            target_mention_to=idxs[1]
+        )[0]['class_label']
+    except:
+        user_sentiments[keyword] = 'neutral'
 
-    keywords = list(user_sentiments.keys())
     
-    keywords_indices = {}
-
-    for keyword in keywords:
-        keywords_indices[keyword] = [find_idx(cluster_body_list[i], keyword) for i in range(num_articles)]
-
-    topic_sentiments = {}
-    
-    for keyword in keywords_indices:
-        topic_sentiments[keyword] = []
-        for i in range(num_articles):
-            try:
-                topic_sentiments[keyword].append(tsc.infer(
-                    text=cluster_body_list[i],
-                    target_mention_from=keywords_indices[keyword][i][0],
-                    target_mention_to=keywords_indices[keyword][i][1]
-                )[0]['class_label'])
-            except:
-                topic_sentiments[keyword].append('')
-    
-    output = {}
-
-    keywords_list = []
-    for keyword in keywords:
-        keywords_list.append({'word': keyword,
-                            'sentiment': user_sentiments[keyword]})
-
-    output['user_article'] = {
-        # 'title': data['match']['docs'][0]['headline'][0],
-        # 'source': data['match']['docs'][0]['outlet'][0],
-        # 'politicalLeaning': data['match']['docs'][0]['political_leaning'][0],
-        'title': data['match']['docs'][0]['title'][0],
-        'source': data['match']['docs'][0]['source_name'][0],
-        'keywords': keywords_list
-    }
-
-    articles_list = []
+    keyword_indeces = []
     for i in range(num_articles):
-        keywords_list = []
-        for keyword in keywords:
-            keywords_list.append({'word': keyword,
-                                'sentiment': topic_sentiments[keyword][i]})
-        articles_list.append({
-            # 'title': data['response']['docs'][i]['headline'][0],
-            # 'source': data['response']['docs'][i]['outlet'][0],
-            # 'politicalLeaning': data['response']['docs'][i]['political_leaning'][0],
-            'title': data['response']['docs'][i]['title'][0],
-            'source': data['response']['docs'][i]['source_name'][0],
-            'keywords': keywords_list
-        })
+        keyword_indeces.append(find_idx(cluster_body_list[i], keyword))
+    topic_sentiments = []
+    for i in range(num_articles):
+        try:
+            topic_sentiments.append(tsc.infer(
+                text=cluster_body_list[i],
+                target_mention_from=keyword_indeces[i][0],
+                target_mention_to=keyword_indeces[i][1]
+            )[0]['class_label'])
+        except:
+            topic_sentiments.append('neutral')
 
+    output = {}
+    output['user_article'] = {
+        'title': data['user_article']['title'],
+        'keyword': keyword,
+        'sentiment': user_sentiments[keyword]
+    }
+    articles_list = []
+    if multiple_articles:
+        for i in range(num_articles):
+            articles_list.append({
+                'title': data['queried_articles'][i]['title'],
+                'keyword': keyword,
+                'sentiment': topic_sentiments[i]
+            })
+    else:
+        articles_list.append({
+            'title': data['queried_articles'][article_idx]['title'],
+            'keyword': keyword,
+            'sentiment': topic_sentiments[0] 
+        })
     output['queried_articles'] = articles_list
 
     return output 
@@ -212,8 +194,10 @@ def get_keywords_list(input_list):
     sorted_pairs = sorted(pairs, key=lambda x: x[1], reverse=True)
     # Extract the keywords from the sorted pairs
     sorted_keywords = [keyword for keyword, value in sorted_pairs]
+    prefix="body:"
+    cleaned_keywords = [keyword.replace(prefix, "") for keyword in sorted_keywords]
 
-    return sorted_keywords
+    return cleaned_keywords
 
 
 
@@ -224,7 +208,7 @@ def background():
         time.sleep(10)
 
 
-def run_instance(device, leaning_model, hyperpartisan_model, input_fname, output_fname):
+def run_instance(device, leaning_model, hyperpartisan_model, input_fname, output_fname, tsc):
     print('Running instance.')
 
     dataset = ArticleDataset(json_file='./M1_output.json')
@@ -274,33 +258,115 @@ def run_instance(device, leaning_model, hyperpartisan_model, input_fname, output
 
     out_dict['queried_articles'] = []
 
+
+
+
+    # DISPLAYING EACH ONE OF DIFFERENT PERSPECTIVES FIRST
+    diff_arr = []
     for i in range(len(coarse_perspectives) - 1):
-        out_dict['queried_articles'].append({
-        'title' : in_dict['response']['docs'][i]['title'][0],
-        'source' : in_dict['response']['docs'][i]['source_name'][0],
-        'body' : in_dict['response']['docs'][i]['body'][0],
-        'url' : in_dict['response']['docs'][i]['url'][0],
-        'image_url' : in_dict['response']['docs'][i]['image_url'][0],
-        'date' : in_dict['response']['docs'][i]['date'][0],
-        'M2.1_perspectives' : coarse_perspectives[i+1]
-        })
-    # articles_list = []
+        diff_arr.append(abs(coarse_perspectives[0] - coarse_perspectives[i+1]))
+
+    diff_range = 0
+    for i in range(len(diff_arr)):  
+        if diff_arr[i] != 0:
+            diff_range += 1
+
+    perspectives_dict = {} # key: perspective, value: list of indices
+
+    for i in range(5):
+        perspectives_dict[i-2] = []
+    for i in range(len(coarse_perspectives) - 1):
+        # if coarse_perspectives[i+1] not in perspectives_dict:
+        #     perspectives_dict[coarse_perspectives[i+1]] = []
+        perspectives_dict[coarse_perspectives[i+1]].append(i)
+    
+    curr_perspective = 0
+    curr_perspective_indeces = [0, 0, 0, 0, 0]
     # for i in range(len(coarse_perspectives) - 1):
-    #     keywords_list = []
-    #     for keyword in keywords:
-    #         keywords_list.append({'word': keyword,
-    #                             'sentiment': topic_sentiments[keyword][i]})
-    #     articles_list.append({
-    #         # 'title': data['response']['docs'][i]['headline'][0],
-    #         # 'source': data['response']['docs'][i]['outlet'][0],
-    #         # 'politicalLeaning': data['response']['docs'][i]['political_leaning'][0],
-    #         'title': data['response']['docs'][i]['title'][0],
-    #         'source': data['response']['docs'][i]['source_name'][0],
-    #         'keywords': keywords_list
+    iter_count = 0
+    while iter_count < diff_range:
+        if coarse_perspectives[0] == curr_perspective - 2:
+            curr_perspective += 1
+        if curr_perspective_indeces[curr_perspective] < len(perspectives_dict[curr_perspective-2]):
+            out_dict['queried_articles'].append({
+            'title' : in_dict['response']['docs'][perspectives_dict[curr_perspective-2][curr_perspective_indeces[curr_perspective]]]['title'][0],
+            'source' : in_dict['response']['docs'][perspectives_dict[curr_perspective-2][curr_perspective_indeces[curr_perspective]]]['source_name'][0],
+            'body' : in_dict['response']['docs'][perspectives_dict[curr_perspective-2][curr_perspective_indeces[curr_perspective]]]['body'][0],
+            'url' : in_dict['response']['docs'][perspectives_dict[curr_perspective-2][curr_perspective_indeces[curr_perspective]]]['url'][0],
+            'image_url' : in_dict['response']['docs'][perspectives_dict[curr_perspective-2][curr_perspective_indeces[curr_perspective]]]['image_url'][0],
+            'date' : in_dict['response']['docs'][perspectives_dict[curr_perspective-2][curr_perspective_indeces[curr_perspective]]]['date'][0],
+            'M2.1_perspectives' : coarse_perspectives[perspectives_dict[curr_perspective-2][curr_perspective_indeces[curr_perspective]]+1]
+            })
+            curr_perspective_indeces[curr_perspective] += 1
+            iter_count += 1
+        curr_perspective += 1
+        curr_perspective %= 5
+
+    for i in range(len(perspectives_dict[coarse_perspectives[0]])):
+        out_dict['queried_articles'].append({
+        'title' : in_dict['response']['docs'][perspectives_dict[coarse_perspectives[0]][i]]['title'][0],
+        'source' : in_dict['response']['docs'][perspectives_dict[coarse_perspectives[0]][i]]['source_name'][0],
+        'body' : in_dict['response']['docs'][perspectives_dict[coarse_perspectives[0]][i]]['body'][0],
+        'url' : in_dict['response']['docs'][perspectives_dict[coarse_perspectives[0]][i]]['url'][0],
+        'image_url' : in_dict['response']['docs'][perspectives_dict[coarse_perspectives[0]][i]]['image_url'][0],
+        'date' : in_dict['response']['docs'][perspectives_dict[coarse_perspectives[0]][i]]['date'][0],
+        'M2.1_perspectives' : coarse_perspectives[perspectives_dict[coarse_perspectives[0]][i]+1]
+        })
+
+
+
+
+    # M2.2
+    # out_dict = m22('M2_output_REAL_REFERENCE.json', 3, tsc, multiple_articles=True)
+
+
+    ## RANDOM SORTING DIFFERENT PERSPECTIVES
+    # diff_arr = []
+    # for i in range(len(coarse_perspectives) - 1):
+    #     diff_arr.append(abs(coarse_perspectives[0] - coarse_perspectives[i+1]))
+
+    # sorted_idx = sorted(range(len(diff_arr)), key=lambda k: diff_arr[k], reverse=True)
+    # # sorted_idx_inv = sorted(range(len(diff_arr)), key=lambda k: diff_arr[k], reverse=True)
+
+    # diff_range = 0
+    # for i in range(len(diff_arr)):  
+    #     if diff_arr[i] != 0:
+    #         diff_range += 1
+
+    # sublist_rand = sorted_idx[:diff_range]
+    # random.shuffle(sublist_rand)
+    # sublist_same = sorted_idx[diff_range:]
+    # rand_sorted_idx = sublist_rand + sublist_same
+
+    # for i in rand_sorted_idx:
+    #     out_dict['queried_articles'].append({
+    #     'title' : in_dict['response']['docs'][i]['title'][0],
+    #     'source' : in_dict['response']['docs'][i]['source_name'][0],
+    #     'body' : in_dict['response']['docs'][i]['body'][0],
+    #     'url' : in_dict['response']['docs'][i]['url'][0],
+    #     'image_url' : in_dict['response']['docs'][i]['image_url'][0],
+    #     'date' : in_dict['response']['docs'][i]['date'][0],
+    #     'M2.1_perspectives' : coarse_perspectives[i+1]
+    #     })
+        
+
+
+
+    ## NO SORTING
+    # for i in range(len(coarse_perspectives) - 1):
+    #     out_dict['queried_articles'].append({
+    #     'title' : in_dict['response']['docs'][i]['title'][0],
+    #     'source' : in_dict['response']['docs'][i]['source_name'][0],
+    #     'body' : in_dict['response']['docs'][i]['body'][0],
+    #     'url' : in_dict['response']['docs'][i]['url'][0],
+    #     'image_url' : in_dict['response']['docs'][i]['image_url'][0],
+    #     'date' : in_dict['response']['docs'][i]['date'][0],
+    #     'M2.1_perspectives' : coarse_perspectives[i+1]
     #     })
 
-    keywords = in_dict['interestingTerms']
-    # keywords = get_keywords_list(in_dict['interestingTerms'])
+
+    # keywords = in_dict['interestingTerms']
+    keywords = get_keywords_list(in_dict['interestingTerms'])
     sent = get_sentence(keywords, out_dict['user_article']['body'])
     out_dict['user_article']['keyword'] = sent[0]
     out_dict['user_article']['key_sentence'] = sent[1]
@@ -317,7 +383,6 @@ def run_instance(device, leaning_model, hyperpartisan_model, input_fname, output
 
 def main():
     device = 'cuda'
-    # device = 'cpu'
     leaning_model_dir = './saved_models/leaning/'
     hyperpartisan_model_dir = './saved_models/hyperpartisan/'
     input_fname = './M1_output.json'
@@ -328,6 +393,8 @@ def main():
     leaning_model = AutoModelForSequenceClassification.from_pretrained(leaning_model_dir)
     leaning_model.to(device)
 
+    tsc = TargetSentimentClassifier()
+
 
     # now threading1 runs regardless of user input
     threading1 = threading.Thread(target=background)
@@ -336,7 +403,7 @@ def main():
     print('Type "run" to run. Type "exit" twice to quit.')
     while True:
         if input() == 'run':
-            run_instance(device, leaning_model, hyperpartisan_model, input_fname, output_fname)
+            run_instance(device, leaning_model, hyperpartisan_model, input_fname, output_fname, tsc)
         elif input() == 'exit':
             sys.exit()
         else:
