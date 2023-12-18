@@ -446,6 +446,7 @@ async def predict(request: Request):
     article_title = data['text'][0]
     prediction = run_instance(device, leaning_model, hyperpartisan_model, input_fname, output_fname, article_title)
     print(prediction)
+    return prediction
     # url = data.get('url')
     
     #print(url)
