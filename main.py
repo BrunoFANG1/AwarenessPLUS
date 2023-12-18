@@ -29,6 +29,7 @@ from fastapi import FastAPI
 from newsplease import NewsPlease
 import requests
 from urllib.parse import quote_plus
+from fastapi import Request
 app=FastAPI()
 
 # Used for model evaluation in M2.1
@@ -285,13 +286,13 @@ def get_current_article(url):
 #         time.sleep(10)
 
 
-def run_instance(device, leaning_model, hyperpartisan_model, input_fname, output_fname):
+def run_instance(device, leaning_model, hyperpartisan_model, input_fname, output_fname, current_title):
     
-    #TODO Replace url with the url returned from frontend
-    url = "" 
-    current_title = get_current_article(url) # Get the title of the current article, used for solr
+    # # No longer needed because we are getting the article title from the frontend
+    # url = "" 
+    # current_title = get_current_article(url) # Get the title of the current article, used for solr
     
-    #TODO: uncomment the following block when solr is ready
+    # TODO: uncomment the following block when solr is ready
     # for i in range(10):
     #     out = get_solr_articles(current_title)
     #     if out is not None:
@@ -439,10 +440,24 @@ leaning_model.to(device)
 tsc = TargetSentimentClassifier()
 
 
-@app.get('/predict')
-async def predict():
-    prediction = run_instance(device, leaning_model, hyperpartisan_model, input_fname, output_fname)
+@app.post('/predict')
+async def predict(request: Request):
+    data = await request.json()
+    article_title = data['text'][0]
+    prediction = run_instance(device, leaning_model, hyperpartisan_model, input_fname, output_fname, article_title)
     print(prediction)
+    # url = data.get('url')
+    
+    #print(url)
+
+
+# @app.get('/predict')
+# async def predict():
+#     data = request.json
+#     print(data)
+#     url = data['url']
+#     prediction = run_instance(device, leaning_model, hyperpartisan_model, input_fname, output_fname)
+#     print(prediction)
 
 @app.get('/analyze_this')
 async def analyze_this():
