@@ -29,6 +29,12 @@ from fastapi import FastAPI
 import requests
 from urllib.parse import quote_plus
 from fastapi import Request
+from pydantic import BaseModel
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
+from typing import List
+
+# nltk.download('punkt')
 app=FastAPI()
 
 # Used for model evaluation in M2.1
@@ -290,7 +296,6 @@ def run_instance(device, leaning_model, hyperpartisan_model, input_fname, output
     # # No longer needed because we are getting the article title from the frontend
     # url = "" 
     # current_title = get_current_article(url) # Get the title of the current article, used for solr
-    
     # TODO: uncomment the following block when solr is ready
     # for i in range(10):
     #     out = get_solr_articles(current_title)
@@ -328,7 +333,7 @@ def run_instance(device, leaning_model, hyperpartisan_model, input_fname, output
         'url' : in_dict['match']['docs'][0]['url'][0],
         'image_url' : in_dict['match']['docs'][0]['image_url'][0],
         'date' : in_dict['match']['docs'][0]['date'][0],
-        'M2.1_perspectives' :  coarse_perspectives[0]
+        'M2_1_perspectives' :  coarse_perspectives[0]
     }
 
     out_dict['queried_articles'] = []
@@ -365,7 +370,7 @@ def run_instance(device, leaning_model, hyperpartisan_model, input_fname, output
             'url' : in_dict['response']['docs'][perspectives_dict[curr_perspective-2][curr_perspective_indeces[curr_perspective]]]['url'][0],
             'image_url' : in_dict['response']['docs'][perspectives_dict[curr_perspective-2][curr_perspective_indeces[curr_perspective]]]['image_url'][0],
             'date' : in_dict['response']['docs'][perspectives_dict[curr_perspective-2][curr_perspective_indeces[curr_perspective]]]['date'][0],
-            'M2.1_perspectives' : coarse_perspectives[perspectives_dict[curr_perspective-2][curr_perspective_indeces[curr_perspective]]+1]
+            'M2_1_perspectives' : coarse_perspectives[perspectives_dict[curr_perspective-2][curr_perspective_indeces[curr_perspective]]+1]
             })
             curr_perspective_indeces[curr_perspective] += 1
             iter_count += 1
@@ -380,7 +385,7 @@ def run_instance(device, leaning_model, hyperpartisan_model, input_fname, output
         'url' : in_dict['response']['docs'][perspectives_dict[coarse_perspectives[0]][i]]['url'][0],
         'image_url' : in_dict['response']['docs'][perspectives_dict[coarse_perspectives[0]][i]]['image_url'][0],
         'date' : in_dict['response']['docs'][perspectives_dict[coarse_perspectives[0]][i]]['date'][0],
-        'M2.1_perspectives' : coarse_perspectives[perspectives_dict[coarse_perspectives[0]][i]+1]
+        'M2_1_perspectives' : coarse_perspectives[perspectives_dict[coarse_perspectives[0]][i]+1]
         })
 
     # keywords = in_dict['interestingTerms']
@@ -427,8 +432,8 @@ def run_instance(device, leaning_model, hyperpartisan_model, input_fname, output
 #             print('wrong input')
 
 device = 'cpu'
-leaning_model_dir = './saved_models/leaning/'
-hyperpartisan_model_dir = './saved_models/hyperpartisan/'
+leaning_model_dir = '../saved_models/leaning/'
+hyperpartisan_model_dir = '../saved_models/hyperpartisan/'
 input_fname = './M1_output.json'
 output_fname = './M2_output.json'
 
@@ -439,13 +444,33 @@ leaning_model.to(device)
 tsc = TargetSentimentClassifier()
 
 
+# Define a Pydantic model for individual articles
+class ArticleInfo(BaseModel):
+    title: str
+    source: str
+    body: str
+    url: str
+    image_url: str
+    date: str
+    M2_1_perspectives: int = 0
+    keyword: str
+    key_sentence: str
+
+# Define a Pydantic model for the overall prediction result
+class PredictionResult(BaseModel):
+    user_article: ArticleInfo
+    queried_articles: List[ArticleInfo]
+
 @app.post('/predict')
 async def predict(request: Request):
     data = await request.json()
+    print(data)
     article_title = data['text'][0]
+    print(article_title)
     prediction = run_instance(device, leaning_model, hyperpartisan_model, input_fname, output_fname, article_title)
-    print(prediction)
-    return prediction
+    prediction_result = PredictionResult(**prediction)
+    print(prediction_result)
+    return prediction_result
     # url = data.get('url')
     
     #print(url)

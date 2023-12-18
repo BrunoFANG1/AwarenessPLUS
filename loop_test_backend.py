@@ -382,9 +382,9 @@ def run_instance(device, leaning_model, hyperpartisan_model, input_fname, output
     print('Done running instance.')
 
 def main():
-    device = 'cuda'
-    leaning_model_dir = './saved_models/leaning/'
-    hyperpartisan_model_dir = './saved_models/hyperpartisan/'
+    device = 'cuda' if torch.cuda.is_available() else 'cpu' 
+    leaning_model_dir = '../saved_models/leaning/'
+    hyperpartisan_model_dir = '../saved_models/hyperpartisan/'
     input_fname = './M1_output.json'
     output_fname = './M2_output.json'
 
