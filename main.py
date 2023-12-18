@@ -348,13 +348,15 @@ async def predict():
     prediction = run_instance(device, leaning_model, hyperpartisan_model, input_fname, output_fname)
     print(prediction)
 
-@app.get('/analyze')
-async def analyze():
+@app.get('/analyze_this')
+async def analyze_this():
     curr_key_sentiment = m22('./M2_output.json', 0, tsc, multiple_articles=False)
-    all_key_sentiment = m22('./M2_output.json', 0, tsc, multiple_articles=True)
     print(curr_key_sentiment)
-    print(all_key_sentiment)
 
+@app.get('/analyze_all')
+async def analyze_all():
+    all_key_sentiment = m22('./M2_output.json', 0, tsc, multiple_articles=True)
+    print(all_key_sentiment)
 
 if __name__ == '__main__':
     # classifier = joblib.load('./pipeline.pkl')
