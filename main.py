@@ -26,7 +26,6 @@ import joblib
 import pickle
 import sys
 from fastapi import FastAPI
-from newsplease import NewsPlease
 import requests
 from urllib.parse import quote_plus
 from fastapi import Request
