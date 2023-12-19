@@ -407,3 +407,17 @@ footer a:hover {
 .article-card.center-leaning {
   background-color: #ffffdd; /* Yellow for center-leaning articles */
 }
+
+.btn-secondary {
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  margin-bottom: 20px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.btn-secondary:hover {
+  background-color: #5a6268;
+}
