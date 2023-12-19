@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # coding: utf-8
 import threading
+import string
+import urllib.parse
 import time 
 import sys
 import torch
@@ -113,6 +115,7 @@ def m22(input_fname, article_idx, tsc, multiple_articles=False):
     output = {}
     output['user_article'] = {
         'title': data['user_article']['title'],
+        'url': data['user_article']['url'],
         'keyword': keyword,
         'sentiment': user_sentiments[keyword]
     }
@@ -121,12 +124,14 @@ def m22(input_fname, article_idx, tsc, multiple_articles=False):
         for i in range(num_articles):
             articles_list.append({
                 'title': data['queried_articles'][i]['title'],
+                'url': data['queried_articles'][i]['url'],
                 'keyword': keyword,
                 'sentiment': topic_sentiments[i]
             })
     else:
         articles_list.append({
             'title': data['queried_articles'][article_idx]['title'],
+            'url': data['queried_articles'][article_idx]['url'],
             'keyword': keyword,
             'sentiment': topic_sentiments[0] 
         })
@@ -329,7 +334,12 @@ def M1(title):
 
     # Query to find the specific document by title
     # change it 
-    query = f'title:\"{title}\"'
+    #query = f'title:\"{title}\"'
+    encoded_title = urllib.parse.quote(title)
+
+    # Construct the query with the encoded title
+    query = f'title:\\"{encoded_title}\\"'
+    print(query)
 
     # Get the document ID
     document_id = get_document_id(solr_url, query)
@@ -513,7 +523,7 @@ class ArticleInfo(BaseModel):
     url: str
     image_url: str
     date: str
-    M2_1_perspectives: int = 0
+    M2_1_perspectives: int
     keyword: str
     key_sentence: str
 
@@ -546,23 +556,26 @@ async def predict(request: Request):
 #     print(prediction)
 
 @app.post('/analyze_this')
-async def analyze_this():
+async def analyze_this(request: Request):
     # Usage: return the index of the article selected by the user from frontend (starting at 0)
     # Format: data['article_idx'] = the article's index
     data = await request.json()
-    article_idx = data['article_idx']
+    print(data)
+    article_idx = int(data['article_idx'])
     curr_key_sentiment = m22('./M2_output.json', article_idx=article_idx, tsc=tsc, multiple_articles=False)
     print(curr_key_sentiment)
     return curr_key_sentiment
 
 @app.post('/analyze_all')
-async def analyze_all():
+async def analyze_all(request: Request):
     # Usage: return the index of the article selected by the user from frontend (starting at 0)
     # Format: data['article_idx'] = the article's index
     #data = await request.json()
     #article_idx = data['article_idx']
     
-    article_idx =0
+    data = await request.json()
+    print(data)
+    article_idx = int(data['article_idx'])
     all_key_sentiment = m22('./M2_output.json', article_idx=article_idx, tsc=tsc, multiple_articles=True)
     print(all_key_sentiment)
     return all_key_sentiment
