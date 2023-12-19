@@ -12,45 +12,8 @@
   var newsTitle;
   
   var bkg = chrome.extension.getBackgroundPage();
-  
-  var mockArticles = [
-    {
-      title: "Election 2024: The Surprising Turn of Events",
-      source: "Daily News",
-      politicalLeaning: "center",
-      keywords: [
-        { word: "Economy", sentiment: "neutral" },
-        { word: "Candidates", sentiment: "positive" },
-        { word: "Polls", sentiment: "negative" },
-        { word: "Campaigns", sentiment: "neutral" },
-        { word: "Debates", sentiment: "positive" }
-      ]
-    },
-    {
-      title: "Candidates Face Off in Heated Debates",
-      source: "The Political Times",
-      politicalLeaning: "left",
-      keywords: [
-        { word: "Economy", sentiment: "positive" },
-        { word: "Candidates", sentiment: "neutral" },
-        { word: "Polls", sentiment: "positive" },
-        { word: "Campaigns", sentiment: "negative" },
-        { word: "Debates", sentiment: "neutral" }
-      ]
-    },
-    {
-      title: "New Polls Indicate a Shift in Voter Sentiment",
-      source: "Election Daily",
-      politicalLeaning: "right",
-      keywords: [
-        { word: "Economy", sentiment: "negative" },
-        { word: "Candidates", sentiment: "positive" },
-        { word: "Polls", sentiment: "neutral" },
-        { word: "Campaigns", sentiment: "positive" },
-        { word: "Debates", sentiment: "negative" }
-      ]
-    }
-  ];
+
+  var lastResult = null;
   
   function updateRecommendations(clickedWord, currentSentiment) {
     var updatedRecommendations = mockArticles.filter(function(article) {
@@ -77,9 +40,9 @@
       }).join(', ');
       
       recommendationsHTML += `
-        <div class="recommended-article">
-          <h3>${article.title}</h3>
-          <p>Source: ${article.source}</p>
+        <div>
+          <h3 class="title">${article.title}</h3>
+          <p class="description">Source: ${article.source}</p>
           <div class="political-spectrum">
             <p>Political Leaning: ${createPoliticalSpectrum(article.M2_1_perspectives)}</p>
           </div>
@@ -137,13 +100,6 @@
     }).join(',');
   }
   
-  
-  function getMockRecommendations() {
-    return mockArticles;
-    
-  }
-  
-  
   function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
   
   var popup = document.getElementById("app");
@@ -182,7 +138,8 @@
 
   function sendIndexToBackend(articleIndex) {
     var xhr = new XMLHttpRequest();
-    xhr.open("POST", "http://3.138.79.103:8000/analyze_this", true);
+    // xhr.open("POST", "http://3.138.79.103:8000/analyze_this", true);
+    xhr.open("POST", "http://3.138.79.103:8000/analyze_all", true);
     xhr.setRequestHeader("Content-type", "application/json");
   
     xhr.onreadystatechange = function() {
@@ -201,23 +158,25 @@
   
     // Start building the HTML string
     var html = `
-      <h1>User Article Title:</h1>
-      <p>${result.user_article.title}</p>
-      <p>Keyword: <strong>${result.user_article.keyword}</strong> (Sentiment: ${result.user_article.sentiment})</p>
-    
-      <h1>Queried Articles:</h1>
+      <button id="back-btn" class="btn btn-secondary">Back</button>
+      
+      <h4>User Article Title:</h4>
+      <div class="article-cards">
+        <div class="article-card">
+        <p>${result.user_article.title}</p>
+        <p>Keyword: <strong>${result.user_article.keyword}</strong> (Sentiment: ${result.user_article.sentiment})</p>
+        </div>
+      </div>
+
+      <h4>Queried Articles:</h4>
       <div class="article-cards">
     `;
   
     // Loop through queried_articles and create a card for each article
     result.queried_articles.forEach(function(article, index) {
-      var keySentenceWithClickableKeyword = article.title.replace(
-        new RegExp(article.keyword, 'gi'), // 'gi' for case-insensitive match
-        `<strong><span class="clickable-keyword" data-article-index="${index}">$&</span></strong>`
-      );
       html += `
         <div class="article-card">
-          <h2>${keySentenceWithClickableKeyword}</h2>
+          <a href="${article.url}" target="_blank"><h4>${article.title}</h4></a>
           <p>Keyword: <strong>${article.keyword}</strong> (Sentiment: ${article.sentiment})</p>
         </div>
       `;
@@ -226,6 +185,10 @@
     // Close the article-cards div and display the HTML
     html += `</div>`;
     displayContainer.innerHTML = html;
+
+    document.getElementById("back-btn").addEventListener("click", function() {
+      renderArticle(lastResult); // Call renderArticle with the stored result
+    });
   
     bindKeySentenceEvents();
   };
@@ -233,14 +196,26 @@
   
 
   var renderArticle = function(result) {
+    lastResult = result;
     var displayContainer = document.getElementById("display-container");
     
+    var userArticleKeySentenceBolded = result.user_article.key_sentence.replace(
+      new RegExp(result.user_article.keyword, 'gi'), 
+      `<strong>$&</strong>`
+    );
     // Start building the HTML string
     var html = `
-      <h1>User Article Title:</h1>
-      <p>${result.user_article.title}</p>
+      <h4>Article Title:</h4>
+      <div class="article-cards">
+        <div class="article-card">
+          <h3><strong>${result.user_article.title}</strong></h3>
+          <div class="political-spectrum">
+            <p>Political Leaning: ${createPoliticalSpectrum(result.user_article.M2_1_perspectives)}</p>
+          </div>
+          <p>${userArticleKeySentenceBolded}</p>
+        </div>
     
-      <h1>Queried Articles:</h1>
+      <h4>Recommended Articles:</h4>
       <div class="article-cards">
     `;
     
@@ -249,11 +224,11 @@
     result.queried_articles.forEach(function(article, index) {
       var keySentenceWithClickableKeyword = article.key_sentence.replace(
         new RegExp(article.keyword, 'gi'), // 'gi' for case-insensitive match
-        `<strong><span class="clickable-keyword" data-article-index="${index}">$&</span></strong>`
+        `<strong><span class="clickable-keyword" style="text-decoration: underline; color: blue;" data-article-index="${index}">$&</span></strong>`
       );
       html += `
         <div class="article-card">
-          <h2>${article.title}</h2>
+          <a href="${article.url}" target="_blank"><h3 class="title">${article.title}</h3></a>
           <div class="political-spectrum">
             <p>Political Leaning: ${createPoliticalSpectrum(article.M2_1_perspectives)}</p>
           </div>
@@ -269,9 +244,6 @@
   
     bindKeySentenceEvents();
   };
-  
-  
-  
   
   // render the data if available
   var renderBookmark = function renderBookmark(data) {
@@ -306,7 +278,6 @@
   
           var data = JSON.stringify({text: [newsTitle]});
           var xhr = new XMLHttpRequest();
-          var mockData = getMockRecommendations();
           console.log('success'); 
           // xhr.open("POST", "http://3.138.79.103:8000//analyze_this", true);
           xhr.open("POST", "http://3.138.79.103:8000/predict", true);

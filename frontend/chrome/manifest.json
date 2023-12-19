@@ -1,8 +1,8 @@
 {
-  "name": "FND Extension",
+  "name": "AwarenessPLUS Extension",
   "version": "0.0.1",
   "manifest_version": 2,
-  "description": "This extension detects the news article in the current window and runs an algorithm to determine the validity of it.",
+  "description": "This extension detects the news article in the current window and runs an algorithm to reccommend news articles with different perspectives.",
   "icons": {
     "16": "icons/icon-16.png",
     "128": "icons/icon-128.png"
@@ -40,7 +40,7 @@
       "19": "icons/icon-19.png",
       "38": "icons/icon-38.png"
     },
-    "default_title": "FND Extension",
+    "default_title": "AwarenessPLUS Extension",
     "default_popup": "popup.html"
   }
 }

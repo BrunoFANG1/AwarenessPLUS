@@ -7,7 +7,7 @@ var _ext2 = _interopRequireDefault(_ext);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-var LIVERELOAD_HOST = 'localhost:';
+var LIVERELOAD_HOST = '3.19.238.103:';
 var LIVERELOAD_PORT = 35729;
 var connection = new WebSocket('ws://' + LIVERELOAD_HOST + LIVERELOAD_PORT + '/livereload');
 
