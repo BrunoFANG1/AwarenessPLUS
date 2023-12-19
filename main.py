@@ -209,7 +209,7 @@ def get_solr_articles(article_title):
     solr_mlt_url = 'http://localhost:8990/solr/liang/mlt'  # URL for MLT queries
 
     # Query to find the specific document by title
-    query = f'title:"{article_title}"'
+    query = f'title:\"{article_title}\"'
 
     # Get the document ID
     document_id = get_document_id(solr_url, query)
@@ -285,6 +285,67 @@ def get_current_article(url):
         print(article.title)
         return(article.title)
 
+# M1
+import requests
+import json
+import time
+from urllib.parse import quote_plus
+
+def get_document_id(solr_url, query):
+    """ Get the ID of the document matching the query. """
+    encoded_query = quote_plus(query)
+    full_url = f"{solr_url}?q={encoded_query}"
+    response = requests.get(full_url)
+
+    if response.status_code == 200:
+        response_json = response.json()
+        docs = response_json.get('response', {}).get('docs', [])
+        if docs:
+            return docs[0].get('id')  # Assuming the first document is the correct one
+        else:
+            print("No documents found for the query.")
+            return None
+    else:
+        print(f"Error during search: {response.status_code}")
+        return None
+
+def find_similar_documents(solr_mlt_url, document_id):
+    """ Find documents similar to the one with the provided ID. """
+    full_url = f"{solr_mlt_url}?q=id:{quote_plus(document_id)}&mlt.fl=body&mlt.boost=true&mlt.interestingTerms=details&mlt.maxdfpct=3&ros=10"
+    response = requests.get(full_url)
+    print(response)
+
+    # for run in range(100):
+    if response.status_code == 200:
+        print("save file")
+        return response.text  # Return the raw JSON response text
+
+    return None
+
+def M1(title):
+    # Define the base URL for Solr
+    solr_url = 'http://localhost:8983/solr/demo/select'
+    solr_mlt_url = 'http://localhost:8983/solr/demo/mlt'  # URL for MLT queries
+
+    # Query to find the specific document by title
+    # change it 
+    query = f'title:\"{title}\"'
+
+    # Get the document ID
+    document_id = get_document_id(solr_url, query)
+
+    print(f"document id is {document_id}")
+
+    similar_documents_json = None
+    if document_id:
+        print(document_id)
+        similar_documents_json = find_similar_documents(solr_mlt_url, document_id)
+
+        if similar_documents_json:
+            # Write the raw JSON response to a file
+            with open('M1_output.json', 'w') as file:
+                file.write(similar_documents_json)
+    return similar_documents_json
 
 # def background():
 #     while True:
@@ -294,16 +355,16 @@ def get_current_article(url):
 def run_instance(device, leaning_model, hyperpartisan_model, input_fname, output_fname, current_title):
     
     # # No longer needed because we are getting the article title from the frontend
-    # url = "" 
-    # current_title = get_current_article(url) # Get the title of the current article, used for solr
-    # TODO: uncomment the following block when solr is ready
-    # for i in range(10):
-    #     out = get_solr_articles(current_title)
-    #     if out is not None:
-    #         print("success")
-    #         break
-    #     time.sleep(0.5)
-    
+    print('Running M1')
+    print(current_title)
+    M1_backend = './M1_backend.py'
+
+    for i in range(10):
+        out = M1(current_title)
+        if out is not None:
+            print("success")
+            break
+        time.sleep(0.5*(i+1))
 
     print('Running M2.1.')
 
